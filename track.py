@@ -1,13 +1,9 @@
-My Drive
-Details
-Activity
-Select a file or folder to view its details
-
 import numpy as np
 import cv2
 import glob, os, sys, time, datetime
 
 # TODO corners save when offline processing
+
 ONLINE = True
 CALIBRATE = False
 RELATIVE_DESTINATION_PATH = str(datetime.date.today()) + '_distance/'
@@ -39,6 +35,8 @@ def counterclockwiseSort(tetragon):
 
 # TODO pointlike tetragon moving instead drawing it by clicking
 # mouse callback function for drawing a cropping polygon
+
+
 def drawFloorCrop(event, x, y, flags, params):
     global perspectiveMatrix, name, RENEW_TETRAGON
     imgCroppingPolygon = np.zeros_like(params['imgFloorCorners'])
@@ -47,17 +45,24 @@ def drawFloorCrop(event, x, y, flags, params):
     if len(params['croppingPolygons'][name]) > 4 and event == cv2.EVENT_LBUTTONUP:
         RENEW_TETRAGON = True
         h = params['imgFloorCorners'].shape[0]
+
         # delete 5th extra vertex of the floor cropping tetragon
+
         params['croppingPolygons'][name] = np.delete(params['croppingPolygons'][name], -1, 0)
         params['croppingPolygons'][name] = params['croppingPolygons'][name] - [h,0]
         
         # Sort cropping tetragon vertices counter-clockwise starting with top left
+
         params['croppingPolygons'][name] = counterclockwiseSort(params['croppingPolygons'][name])
+
         # Get the matrix of perspective transformation
+
         params['croppingPolygons'][name] = np.reshape(params['croppingPolygons'][name], (4,2))
         tetragonVertices = np.float32(params['croppingPolygons'][name])
         tetragonVerticesUpd = np.float32([[0,0], [0,h], [h,h], [h,0]])
         perspectiveMatrix[name] = cv2.getPerspectiveTransform(tetragonVertices, tetragonVerticesUpd)
+    
+    
     if event == cv2.EVENT_LBUTTONDOWN:
         if len(params['croppingPolygons'][name]) == 4 and RENEW_TETRAGON:
             params['croppingPolygons'][name] = np.array([[0,0]])
@@ -65,6 +70,8 @@ def drawFloorCrop(event, x, y, flags, params):
         if len(params['croppingPolygons'][name]) == 1:
             params['croppingPolygons'][name][0] = [x,y]
         params['croppingPolygons'][name] = np.append(params['croppingPolygons'][name], [[x,y]], axis=0)
+    
+    
     if event == cv2.EVENT_MOUSEMOVE and not (len(params['croppingPolygons'][name]) == 4 and RENEW_TETRAGON):
         params['croppingPolygons'][name][-1] = [x,y]
         if len(params['croppingPolygons'][name]) > 1:
@@ -89,6 +96,7 @@ def floorCrop(filename):
     h, w = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)), int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     # Take first non-null frame and find corners within it
+
     ret, frame = cap.read()
     while not frame.any():
         ret, frame = cap.read()
@@ -111,6 +119,8 @@ def floorCrop(filename):
         # If the contour is convex tetragon
         # and its area is above a half of total frame area,
         # then it's most likely the floor
+
+
         if len(contour) == 4 and cv2.contourArea(contour) > HALF_AREA:
             contour = contour.reshape(-1, 2)
             max_cos = np.max([angle_cos(contour[i], contour[(i + 1) % 4], contour[(i + 2) % 4]) for i in range(4)])
@@ -119,15 +129,23 @@ def floorCrop(filename):
     frameGray = cv2.cvtColor(frameGray, cv2.COLOR_GRAY2BGR)
     imgSquare = np.zeros_like(frameGray)
     cv2.fillPoly(imgSquare, tetragons, BGR_COLOR['red'], cv2.LINE_AA)
+
+
     # cv2.add(frameGray, imgSquare / 2, frameGray)
+
+
     cv2.drawContours(frameGray, tetragons, -1, BGR_COLOR['red'], 2, cv2.LINE_AA)
 
     if len(tetragons) > 0:
         tetragonVertices = tetragons[0]
     else:
         tetragonVertices = np.float32([[0,0], [0,h], [h,h], [h,0]])
+
+
     # Sort the cropping tetragon vertices according to the following order:
     # [left,top], [left,bottom], [right,bottom], [right,top]
+
+
     tetragonVertices = counterclockwiseSort(tetragonVertices)
     croppingPolygons[name] = tetragonVertices
     tetragonVertices = np.float32(tetragonVertices)
@@ -209,6 +227,7 @@ def trace(filename):
             continue
 
         # Find a contour with the biggest area (animal most likely)
+
         contour = contours[np.argmax(list(map(cv2.contourArea, contours)))]
         M = cv2.moments(contour)
         if M['m00'] == 0:
@@ -221,7 +240,9 @@ def trace(filename):
         distance += np.sqrt(((x - _x) / float(h))**2 + ((y - _y) / float(h))**2)
 
         if ONLINE:
+
             # Draw the most acute angles of the contour (tail/muzzle/paws of the animal)
+
             hull = cv2.convexHull(contour)
             imgPoints = np.zeros(frame.shape,np.uint8)
             for i in range(2, len(hull) - 2):
@@ -229,12 +250,16 @@ def trace(filename):
                     imgPoints = cv2.circle(imgPoints, (hull[i][0][0],hull[i][0][1]), 5, BGR_COLOR['yellow'], -1, cv2.LINE_AA)
 
             # Draw a contour and a centroid of the animal
+
             cv2.drawContours(imgPoints, [contour], 0, BGR_COLOR['green'], 2, cv2.LINE_AA)
             imgPoints = cv2.circle(imgPoints, (x,y), 5, BGR_COLOR['black'], -1)
             
             # Draw a track of the animal
+
             # imgTrack = cv2.add(np.zeros_like(imgTrack), cv2.line(imgTrack, (x,y), (_x,_y),
+
                 # (255, 127, int(cap.get(cv2.CAP_PROP_POS_AVI_RATIO) * 255)), 1, cv2.LINE_AA))
+                
             imgTrack = cv2.addWeighted(np.zeros_like(imgTrack), 0.85, cv2.line(imgTrack, (x,y), (_x,_y),
                 (255, 127, int(cap.get(cv2.CAP_PROP_POS_AVI_RATIO) * 255)), 1, cv2.LINE_AA), 0.98, 0.)
             imgContour = cv2.add(imgPoints, imgTrack)
@@ -284,8 +309,8 @@ file = open(RELATIVE_DESTINATION_PATH + 'distances.csv', 'w')
 file.write('animal,distance [unit of the box side],run time [seconds]\n')
 file.close()
 
-for filename in glob.glob('*.avi'):
+for filename in glob.glob('*.mov'):
     floorCrop(filename)
-for filename in glob.glob('*.avi'):
+for filename in glob.glob('*.mov'):
     file = open(RELATIVE_DESTINATION_PATH + 'distances.csv', 'a')
     trace(filename)
